@@ -12,6 +12,7 @@ class Bot
     self.setup_twitter_client
     @redis = Redis.new()
     @redis.setnx('last_mention_id:like', '651723102708064256') #random tweet from october 2015
+    @redis.setnx('last_mention_id:retweet', '651723102708064256') #random tweet from october 2015
     @logger = Logger.new(STDOUT)
   end
 
@@ -24,6 +25,18 @@ class Bot
         @client.favorite(mention.id) if likeable_tweet(mention.text)
       end
       @redis.set('last_mention_id:like', mentions.first.id)
+    end
+  end
+
+  def retweet_mentions
+    @last_mention_id = @redis.get('last_mention_id:retweet')
+    mentions = @client.mentions_timeline(since_id: @last_mention_id)
+    unless mentions.empty?
+      mentions.each do |mention|
+        @logger.info "ID: #{mention.id} || #{mention.user.screen_name}: #{mention.text}"
+        @client.retweet(mention.id) if retweetable_tweet(mention.text)
+      end
+      @redis.set('last_mention_id:retweet', mentions.first.id)
     end
   end
 
@@ -40,6 +53,21 @@ protected
     return checks[:abbrev] && checks[:mention] && checks[:endoftext] && checks[:encoding]
   end
 
+  def retweetable_tweet text
+    if self.likeable_tweet(text)
+      checks = {}
+      checks[:airport] = !!(/airport/i =~ text)
+      checks[:travel] = !!(/travel/i =~ text)
+      checks[:lounge] = !!(/lounge/i =~ text)
+      checks[:plane] = !!(/plane/i =~ text)
+      @logger.debug "#{checks.inspect}"
+      @logger.info "retweeted? #{checks[:airport] || checks[:travel] || checks[:lounge] || checks[:plane]}"
+      return checks[:airport] || checks[:travel] || checks[:lounge] || checks[:plane]
+    else
+      return false
+    end
+  end
+
   def setup_twitter_client
     @client ||= Twitter::REST::Client.new do |config|
       config.consumer_key        = ENV['TWITTER_CONSUMER_KEY']
@@ -54,6 +82,7 @@ end
 
 dus = Bot.new
 dus.like_mentions
+dus.retweet_mentions
 
 # dus.client.mentions_timeline(count: 5).each do |item|
 #   puts item.text
