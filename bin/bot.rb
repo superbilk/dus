@@ -6,8 +6,6 @@ require 'logger'
 
 class Bot
 
-  attr_reader :client
-
   def initialize
     self.setup_twitter_client
     @redis = Redis.new()
@@ -17,8 +15,7 @@ class Bot
   end
 
   def like_mentions
-    @last_mention_id = @redis.get('last_mention_id:like')
-    mentions = @client.mentions_timeline(since_id: @last_mention_id)
+    mentions = get_timeline(:like)
     unless mentions.empty?
       mentions.each do |mention|
         @logger.info "ID: #{mention.id} || #{mention.user.screen_name}: #{mention.text}"
@@ -29,8 +26,7 @@ class Bot
   end
 
   def retweet_mentions
-    @last_mention_id = @redis.get('last_mention_id:retweet')
-    mentions = @client.mentions_timeline(since_id: @last_mention_id)
+    mentions = get_timeline(:retweet)
     unless mentions.empty?
       mentions.each do |mention|
         @logger.info "ID: #{mention.id} || #{mention.user.screen_name}: #{mention.text}"
@@ -45,6 +41,16 @@ class Bot
   end
 
 protected
+
+  def get_timeline timeline_type
+    case timeline_type
+    when :like
+      key = 'last_mention_id:like'
+    when :retweet
+      key = 'last_mention_id:retweet'
+    end
+    @client.mentions_timeline(since_id: @redis.get(key))
+  end
 
   def likeable_tweet text
     checks = {}
