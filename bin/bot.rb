@@ -34,7 +34,11 @@ class Bot
     unless mentions.empty?
       mentions.each do |mention|
         @logger.info "ID: #{mention.id} || #{mention.user.screen_name}: #{mention.text}"
-        @client.retweet(mention.id) if retweetable_tweet(mention.text)
+        begin
+          @client.retweet(mention.id) if retweetable_tweet(mention.text)
+        rescue Twitter::Error::Forbidden
+          @logger.info "already retweeted"
+        end
       end
       @redis.set('last_mention_id:retweet', mentions.first.id)
     end
@@ -49,8 +53,8 @@ protected
     checks[:endoftext] = !((/@dus$/ =~ text) && (text.length == 140))
     checks[:encoding] = !(/&amp;/ =~ text)
     @logger.debug "#{checks.inspect}"
-    @logger.info "liked? #{checks[:abbrev] && checks[:mention] && checks[:endoftext] && checks[:encoding]}"
-    return checks[:abbrev] && checks[:mention] && checks[:endoftext] && checks[:encoding]
+    @logger.info "liked? #{checks.all? {|k,v| v}}"
+    return checks.all? {|k,v| v}
   end
 
   def retweetable_tweet text
@@ -61,8 +65,8 @@ protected
       checks[:lounge] = !!(/lounge/i =~ text)
       checks[:plane] = !!(/plane/i =~ text)
       @logger.debug "#{checks.inspect}"
-      @logger.info "retweeted? #{checks[:airport] || checks[:travel] || checks[:lounge] || checks[:plane]}"
-      return checks[:airport] || checks[:travel] || checks[:lounge] || checks[:plane]
+      @logger.info "retweeted? #{checks.any? {|k,v| v}}"
+      return checks.any? {|k,v| v}
     else
       return false
     end
