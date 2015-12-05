@@ -1,5 +1,6 @@
 require 'sinatra'
+require './lib/twitter_handler'
 
 get '/' do
-  "Hello World!"
+  "@dus twitter bot"
 end
