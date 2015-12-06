@@ -54,10 +54,12 @@ protected
 
   def likeable_tweet text
     checks = {}
-    checks[:abbrev] = !(/@dus…/ =~ text)
-    checks[:mention] = !(/^@dus\b/ =~ text)
-    checks[:endoftext] = !((/@dus$/ =~ text) && (text.length == 140))
-    checks[:encoding] = !(/&amp;/ =~ text)
+    # list of regex we don't like
+    checks[:abbrev] = !(/@dus…/i =~ text)
+    checks[:mention] = !(/^@dus\b/i =~ text)
+    checks[:endoftext] = !((/@dus$/i =~ text) && (text.length == 140))
+    checks[:encoding] = !(/&amp;/i =~ text)
+    checks[:different_name] = !(/@dus.*\s/i =~ text)
     @logger.debug "#{checks.inspect}"
     @logger.info "liked? #{checks.all? {|k,v| v}}"
     return checks.all? {|k,v| v}
